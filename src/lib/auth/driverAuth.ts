@@ -9,6 +9,7 @@ export interface DriverSession {
   name: string;
   surname: string;
   expires_at: number;
+  companionMode?: boolean;
 }
 
 export function getDriverSession(): DriverSession | null {
@@ -49,4 +50,16 @@ export async function loginDriver(employee_number: string, pin: string): Promise
   };
   sessionStorage.setItem(STORAGE_KEY, JSON.stringify(session));
   return session;
+}
+
+export function isCompanionMode(): boolean {
+  const session = getDriverSession();
+  return session?.companionMode === true;
+}
+
+export function setCompanionMode(enabled: boolean): void {
+  const session = getDriverSession();
+  if (!session) return;
+  session.companionMode = enabled;
+  sessionStorage.setItem(STORAGE_KEY, JSON.stringify(session));
 }

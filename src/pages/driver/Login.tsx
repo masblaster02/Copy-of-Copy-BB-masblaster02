@@ -6,12 +6,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { loginDriver } from "@/lib/auth/driverAuth";
 import { toast } from "sonner";
+import { CompanionAudioPlayer } from "@/components/CompanionAudioPlayer";
+import { usePageAudio } from "@/hooks/use-page-audio";
 
 export default function DriverLogin() {
   const navigate = useNavigate();
   const [employee, setEmployee] = useState("");
   const [pin, setPin] = useState("");
   const [loading, setLoading] = useState(false);
+  const { data: pageAudio } = usePageAudio("driver_login");
 
   const press = (d: string) => setPin((p) => (p.length >= 6 ? p : p + d));
   const back = () => setPin((p) => p.slice(0, -1));
@@ -34,11 +37,13 @@ export default function DriverLogin() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-muted/30 px-4 py-6">
-      <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground">
-        <ArrowLeft className="h-4 w-4" /> Back
-      </Link>
-      <div className="mx-auto mt-6 flex w-full max-w-sm flex-col items-center">
+    <div className="flex min-h-screen flex-col bg-muted/30">
+      <CompanionAudioPlayer audioPath={pageAudio?.audio_path} ignoreCompanionMode />
+      <div className="px-4 py-6">
+        <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground">
+          <ArrowLeft className="h-4 w-4" /> Back
+        </Link>
+        <div className="mx-auto mt-6 flex w-full max-w-sm flex-col items-center">
         <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
           <Shield className="h-6 w-6" />
         </div>
@@ -90,6 +95,7 @@ export default function DriverLogin() {
         <Button className="mt-6 h-12 w-full text-base" onClick={submit} disabled={loading}>
           {loading ? "Signing in…" : "Sign in"}
         </Button>
+      </div>
       </div>
     </div>
   );

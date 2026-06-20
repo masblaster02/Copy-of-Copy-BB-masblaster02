@@ -1,14 +1,19 @@
 import { useNavigate } from "react-router-dom";
-import { LogOut, Loader as Loader2, CirclePlay as PlayCircle, RotateCcw } from "lucide-react";
+import { LogOut, Loader as Loader2, CirclePlay as PlayCircle, RotateCcw, Headphones } from "lucide-react";
 import { DriverShell } from "@/components/layout/DriverShell";
 import { Button } from "@/components/ui/button";
 import { getDriverSession, clearDriverSession } from "@/lib/auth/driverAuth";
 import { supabase } from "@/lib/supabase";
 import { useQuery } from "@tanstack/react-query";
+import { useCompanionMode } from "@/hooks/use-companion-mode";
+import { usePageAudio } from "@/hooks/use-page-audio";
+import { CompanionAudioPlayer } from "@/components/CompanionAudioPlayer";
 
 export default function DriverMenu() {
   const session = getDriverSession()!;
   const navigate = useNavigate();
+  const { enabled: companionEnabled, toggle: toggleCompanion } = useCompanionMode();
+  const { data: pageAudio } = usePageAudio("driver_menu");
 
   const { data: active, isLoading } = useQuery({
     queryKey: ["driver-active-session", session.driver_id],
@@ -33,14 +38,27 @@ export default function DriverMenu() {
   }
 
   return (
-    <DriverShell
-      title={`Hi, ${session.name}`}
-      action={
-        <Button variant="ghost" size="icon" onClick={logout} aria-label="Sign out">
-          <LogOut className="h-5 w-5" />
-        </Button>
-      }
-    >
+    <>
+      <CompanionAudioPlayer audioPath={pageAudio?.audio_path} />
+      <DriverShell
+        title={`Hi, ${session.name}`}
+        action={
+          <div className="flex items-center gap-1">
+            <Button
+              variant={companionEnabled ? "default" : "ghost"}
+              size="icon"
+              onClick={toggleCompanion}
+              aria-label="Toggle companion mode"
+              title="Companion Mode"
+            >
+              <Headphones className="h-5 w-5" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={logout} aria-label="Sign out">
+              <LogOut className="h-5 w-5" />
+            </Button>
+          </div>
+        }
+      >
       <div className="flex flex-col items-center justify-center py-16 gap-4">
         {isLoading ? (
           <>
@@ -66,5 +84,6 @@ export default function DriverMenu() {
         )}
       </div>
     </DriverShell>
+    </>
   );
 }

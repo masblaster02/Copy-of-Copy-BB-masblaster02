@@ -23,6 +23,8 @@ import { uploadPhoto, getPublicUrl, getDamagePhotoUrl } from "@/lib/storage";
 import { getDriverSession } from "@/lib/auth/driverAuth";
 import { toast } from "sonner";
 import { Camera, Loader as Loader2, CircleAlert as AlertCircle, Eye } from "lucide-react";
+import { CompanionAudioPlayer } from "@/components/CompanionAudioPlayer";
+import { usePageAudio } from "@/hooks/use-page-audio";
 
 const ALL_VIEWS: BlueprintView[] = ["front", "rear", "left", "right", "roof", "interior"];
 
@@ -49,6 +51,7 @@ export default function DriverStartBlueprint() {
   const navigate = useNavigate();
   const driver = getDriverSession()!;
   const qc = useQueryClient();
+  const { data: pageAudio } = usePageAudio("driver_blueprint");
 
   const [view, setView] = useState<BlueprintView>("front");
   const [visited, setVisited] = useState<Set<BlueprintView>>(new Set(["front"]));
@@ -135,7 +138,9 @@ export default function DriverStartBlueprint() {
   };
 
   return (
-    <DriverShell title="Vehicle blueprint" back="/driver/start" steps={{ steps: ["Select", "Inspect", "Pre-trip"], current: 2 }}>
+    <>
+      <CompanionAudioPlayer audioPath={pageAudio?.audio_path} />
+      <DriverShell title="Vehicle blueprint" back="/driver/start" steps={{ steps: ["Select", "Inspect", "Pre-trip"], current: 2 }}>
       {isLoading ? (
         <div className="flex justify-center py-10">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -317,6 +322,7 @@ export default function DriverStartBlueprint() {
         }}
       />
     </DriverShell>
+    </>
   );
 }
 

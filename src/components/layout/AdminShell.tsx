@@ -13,6 +13,7 @@ import {
   ClipboardList,
   Menu,
   X,
+  Headphones,
 } from "lucide-react";
 import { adminLogout } from "@/lib/auth/adminAuth";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,7 @@ const nav = [
   { to: "/admin/inspections", label: "Inspections", icon: ClipboardCheck },
   { to: "/admin/damages", label: "Damages", icon: AlertTriangle },
   { to: "/admin/reports", label: "Reports", icon: FileBarChart },
+  { to: "/admin/companion-audio", label: "Companion Audio", icon: Headphones },
 ];
 
 // Bottom bar shows 4 primary items; rest accessible via the sidebar drawer
