@@ -135,7 +135,7 @@ export default function DriverStartBlueprint() {
   };
 
   return (
-    <DriverShell title="Vehicle blueprint" back="/driver/start" steps={{ steps: ["Select", "Inspect", "Pre-trip"], current: 2 }}>
+    <DriverShell title="Vehicle blueprint" back="/driver/start" steps={{ steps: ["Select", "Inspect", "Pre-trip"], current: 2 }} companionAudioPage="driver_blueprint">
       {isLoading ? (
         <div className="flex justify-center py-10">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />

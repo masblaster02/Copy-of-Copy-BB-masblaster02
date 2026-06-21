@@ -42,6 +42,7 @@ import {
   IdCard,
   Pencil,
   CalendarClock,
+  Volume2,
 } from "lucide-react";
 
 function fmtDate(iso: string | null | undefined) {
@@ -107,7 +108,7 @@ export default function AdminDriverDetail() {
       const { data, error } = await supabase
         .from("drivers")
         .select(
-          "id, name, surname, employee_number, mobile, active, licence_number, licence_type, licence_category, cpc_valid, cpc_expiry_date",
+          "id, name, surname, employee_number, mobile, active, licence_number, licence_type, licence_category, cpc_valid, cpc_expiry_date, companion_audio_enabled",
         )
         .eq("id", driverId)
         .single();
@@ -321,6 +322,29 @@ export default function AdminDriverDetail() {
               )}
             </div>
           </div>
+        </div>
+      </Card>
+
+      {/* Companion Audio Access */}
+      <Card>
+        <div className="flex items-center justify-between border-b px-4 py-3">
+          <div className="flex items-center gap-2">
+            <Volume2 className="h-4 w-4 text-muted-foreground" />
+            <p className="font-semibold text-sm">Companion Audio</p>
+          </div>
+        </div>
+        <div className="flex items-center justify-between p-4">
+          <div>
+            <p className="text-sm font-medium">Audio Step Guidance</p>
+            <p className="text-xs text-muted-foreground">
+              Enable audio helper icons on workflow steps for this driver
+            </p>
+          </div>
+          <CompanionAudioToggle
+            driverId={driver.id}
+            enabled={driver.companion_audio_enabled ?? false}
+            onToggle={() => queryClient.invalidateQueries({ queryKey: ["driver", driverId] })}
+          />
         </div>
       </Card>
 
@@ -643,5 +667,36 @@ function EditLicenceDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function CompanionAudioToggle({
+  driverId,
+  enabled,
+  onToggle,
+}: {
+  driverId: string;
+  enabled: boolean;
+  onToggle: () => void;
+}) {
+  const [updating, setUpdating] = useState(false);
+
+  const handleToggle = async () => {
+    setUpdating(true);
+    const { error } = await supabase
+      .from("drivers")
+      .update({ companion_audio_enabled: !enabled })
+      .eq("id", driverId);
+    setUpdating(false);
+    if (error) {
+      toast.error("Failed to update companion audio setting");
+      return;
+    }
+    toast.success(enabled ? "Companion audio disabled" : "Companion audio enabled");
+    onToggle();
+  };
+
+  return (
+    <Switch checked={enabled} onCheckedChange={handleToggle} disabled={updating} />
   );
 }

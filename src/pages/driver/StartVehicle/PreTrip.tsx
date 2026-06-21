@@ -54,6 +54,7 @@ export default function DriverStartPreTrip() {
         item_text: d.item_text,
         item_order: d.item_order,
         is_active: true,
+        audio_path: d.audio_path,
       }));
     },
   });
@@ -116,7 +117,7 @@ export default function DriverStartPreTrip() {
   const photoCount = summary ? summary.filter((r) => r.photo).length : 0;
 
   return (
-    <DriverShell title="Pre-trip checklist" back={vehicleId ? `/driver/start/${vehicleId}/blueprint` : "/driver/start"} steps={{ steps: ["Select", "Inspect", "Pre-trip"], current: 3 }}>
+    <DriverShell title="Pre-trip checklist" back={vehicleId ? `/driver/start/${vehicleId}/blueprint` : "/driver/start"} steps={{ steps: ["Select", "Inspect", "Pre-trip"], current: 3 }} companionAudioPage="driver_pretrip">
       <InspectionChecklist
         onSubmit={(items) => setSummary(items)}
         submitLabel="Complete pre-trip"

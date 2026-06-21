@@ -40,6 +40,7 @@ export default function DriverMenu() {
           <LogOut className="h-5 w-5" />
         </Button>
       }
+      companionAudioPage="driver_menu"
     >
       <div className="flex flex-col items-center justify-center py-16 gap-4">
         {isLoading ? (

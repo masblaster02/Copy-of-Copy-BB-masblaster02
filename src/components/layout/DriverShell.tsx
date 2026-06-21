@@ -1,7 +1,8 @@
-import { ReactNode } from "react";
+import { ReactNode, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CompanionAudioOverlay } from "@/components/CompanionAudioOverlay";
 
 export interface StepConfig {
   steps: string[];
@@ -14,14 +15,18 @@ export function DriverShell({
   children,
   action,
   steps,
+  companionAudioPage,
 }: {
   title: string;
   back?: string | true;
   children: ReactNode;
   action?: ReactNode;
   steps?: StepConfig;
+  companionAudioPage?: string;
 }) {
   const navigate = useNavigate();
+  const mainRef = useRef<HTMLDivElement>(null);
+
   return (
     <div className="flex min-h-screen flex-col bg-muted/30">
       <header className="sticky top-0 z-10 flex flex-col border-b bg-card">
@@ -73,8 +78,13 @@ export function DriverShell({
           </div>
         )}
       </header>
-      <main className="flex-1 p-4">
+      <main ref={mainRef} className="relative flex-1 p-4">
         <div className="mx-auto max-w-xl">{children}</div>
+        {companionAudioPage && (
+          <div className="absolute inset-0 pointer-events-none">
+            <CompanionAudioOverlay pageKey={companionAudioPage} />
+          </div>
+        )}
       </main>
     </div>
   );

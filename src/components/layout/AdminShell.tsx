@@ -13,6 +13,7 @@ import {
   ClipboardList,
   Menu,
   X,
+  Volume2,
 } from "lucide-react";
 import { adminLogout } from "@/lib/auth/adminAuth";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ const nav = [
   { to: "/admin/drivers", label: "Drivers", icon: Users },
   { to: "/admin/vehicles", label: "Vehicles", icon: Car },
   { to: "/admin/checklists", label: "Checklists", icon: ClipboardList },
+  { to: "/admin/companion-audio", label: "Companion Audio", icon: Volume2 },
   { to: "/admin/sessions", label: "Sessions", icon: Clock },
   { to: "/admin/inspections", label: "Inspections", icon: ClipboardCheck },
   { to: "/admin/damages", label: "Damages", icon: AlertTriangle },

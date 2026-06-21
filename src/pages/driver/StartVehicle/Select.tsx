@@ -38,6 +38,7 @@ export default function DriverStartSelect() {
           <LogOut className="h-5 w-5" />
         </Button>
       }
+      companionAudioPage="driver_select_vehicle"
     >
       {isLoading ? (
         <div className="flex justify-center py-10">

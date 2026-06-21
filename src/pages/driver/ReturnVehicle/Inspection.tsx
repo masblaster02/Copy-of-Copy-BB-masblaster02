@@ -41,6 +41,8 @@ import {
   TriangleAlert as AlertTriangle,
 } from "lucide-react";
 import { type ChecklistItemDef } from "@/components/InspectionChecklist";
+import { InlineAudioButton } from "@/components/CompanionAudioOverlay";
+import { useCompanionAudioAccess } from "@/hooks/useCompanionAudio";
 
 const DAMAGE_TYPES = ["scratch", "dent", "crack", "paint", "missing_part", "other"];
 const BASE_BUCKET = "vehicle-base-photos";
@@ -75,6 +77,7 @@ interface ItemState {
   result: "pass" | "issue" | null;
   notes: string;
   photo?: File;
+  audio_path?: string | null;
   // special state for fuel_level
   fuelLevel?: FuelLevelValue;
 }
@@ -82,6 +85,8 @@ interface ItemState {
 export default function DriverReturnInspection() {
   const driver = getDriverSession()!;
   const navigate = useNavigate();
+
+  const { data: hasAudioAccess } = useCompanionAudioAccess(driver.driver_id);
 
   const [markers, setMarkers] = useState<NewMarker[]>([]);
   const [view, setView] = useState<BlueprintView>("front");
@@ -124,6 +129,7 @@ export default function DriverReturnInspection() {
         item_order: d.item_order,
         is_active: true,
         item_key: d.item_key ?? null,
+        audio_path: d.audio_path,
       }));
     },
   });
@@ -138,6 +144,7 @@ export default function DriverReturnInspection() {
         item_key: ci.item_key ?? null,
         result: null,
         notes: "",
+        audio_path: ci.audio_path,
         fuelLevel: ci.item_key === "fuel_level" ? undefined : undefined,
       })),
     );
@@ -305,7 +312,7 @@ export default function DriverReturnInspection() {
 
   if (sessionLoading || checklistLoading) {
     return (
-      <DriverShell title="Return vehicle" back="/driver">
+      <DriverShell title="Return vehicle" back="/driver" companionAudioPage="driver_return">
         <div className="flex justify-center py-10">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
@@ -315,7 +322,7 @@ export default function DriverReturnInspection() {
 
   if (!session) {
     return (
-      <DriverShell title="Return vehicle" back="/driver">
+      <DriverShell title="Return vehicle" back="/driver" companionAudioPage="driver_return">
         <p className="text-sm text-muted-foreground">No active session found.</p>
       </DriverShell>
     );
@@ -330,6 +337,7 @@ export default function DriverReturnInspection() {
           <LogOut className="h-5 w-5" />
         </Button>
       }
+      companionAudioPage="driver_return"
     >
       <div className="space-y-4">
         {/* @ts-expect-error supabase relation */}
@@ -409,7 +417,12 @@ export default function DriverReturnInspection() {
             return (
               <Card key={s.item_id} className={s.result ? (s.result === "pass" ? "border-green-600/30" : "border-amber-500/30") : ""}>
                 <div className="flex items-center justify-between p-4">
-                  <span className="text-sm font-medium">{s.item_text}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">{s.item_text}</span>
+                    {hasAudioAccess && s.audio_path && (
+                      <InlineAudioButton audioPath={s.audio_path} label="Play instruction" />
+                    )}
+                  </div>
                   <div className="flex gap-2">
                     <Button size="sm" variant={s.result === "pass" ? "default" : "outline"} className={s.result === "pass" ? "bg-green-600 hover:bg-green-700" : ""} onClick={() => patchItem(s.item_id, { result: "pass" })}>
                       <Check className="mr-1 h-4 w-4" /> Pass

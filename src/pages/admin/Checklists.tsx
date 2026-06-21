@@ -1,13 +1,20 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
-import { Plus, Trash2, GripVertical, Loader as Loader2, Check, X } from "lucide-react";
+import { Plus, Trash2, GripVertical, Loader as Loader2, Check, X, Volume2, Play, Square, Upload } from "lucide-react";
 
 type ChecklistType = "pre_trip" | "return";
 
@@ -18,6 +25,7 @@ interface ChecklistItem {
   is_active: boolean;
   checklist_type: ChecklistType;
   item_key: string | null;
+  audio_path: string | null;
 }
 
 export default function AdminChecklists() {
@@ -57,7 +65,7 @@ function ChecklistEditor({ type }: { type: ChecklistType }) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("checklist_items")
-        .select("*")
+        .select("id, item_text, item_order, is_active, checklist_type, item_key, audio_path")
         .eq("checklist_type", type)
         .order("item_order");
       if (error) throw error;
@@ -250,8 +258,19 @@ function ChecklistItemRow({
   onMoveDown?: () => void;
   showControls: boolean;
 }) {
+  const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState(item.item_text);
+  const [audioDialogOpen, setAudioDialogOpen] = useState(false);
+  const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [audioUploading, setAudioUploading] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  const COMPANION_AUDIO_BUCKET = "companion-audio";
+  const audioUrl = item.audio_path
+    ? `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/${COMPANION_AUDIO_BUCKET}/${item.audio_path}`
+    : null;
 
   function saveEdit() {
     if (editText.trim() && editText !== item.item_text) {
@@ -260,66 +279,197 @@ function ChecklistItemRow({
     setEditing(false);
   }
 
+  const handleAudioUpload = async () => {
+    if (!audioFile) return;
+    const validTypes = ["audio/mpeg", "audio/wav", "audio/ogg", "audio/mp3"];
+    if (!validTypes.includes(audioFile.type)) {
+      toast.error("Please upload an MP3, WAV, or OGG file");
+      return;
+    }
+
+    setAudioUploading(true);
+    try {
+      const fileExt = audioFile.name.split(".").pop();
+      const fileName = `checklist/${item.id}/${Date.now()}.${fileExt}`;
+
+      if (item.audio_path) {
+        await supabase.storage.from(COMPANION_AUDIO_BUCKET).remove([item.audio_path]);
+      }
+
+      const { error: uploadError } = await supabase.storage
+        .from(COMPANION_AUDIO_BUCKET)
+        .upload(fileName, audioFile);
+      if (uploadError) throw uploadError;
+
+      const { error: updateError } = await supabase
+        .from("checklist_items")
+        .update({ audio_path: fileName })
+        .eq("id", item.id);
+      if (updateError) throw updateError;
+
+      toast.success("Audio uploaded");
+      setAudioDialogOpen(false);
+      setAudioFile(null);
+      qc.invalidateQueries({ queryKey: ["checklist-items"] });
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setAudioUploading(false);
+    }
+  };
+
+  const handleRemoveAudio = async () => {
+    if (!item.audio_path) return;
+    setAudioUploading(true);
+    try {
+      await supabase.storage.from(COMPANION_AUDIO_BUCKET).remove([item.audio_path]);
+      const { error } = await supabase
+        .from("checklist_items")
+        .update({ audio_path: null })
+        .eq("id", item.id);
+      if (error) throw error;
+      toast.success("Audio removed");
+      setAudioDialogOpen(false);
+      qc.invalidateQueries({ queryKey: ["checklist-items"] });
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setAudioUploading(false);
+    }
+  };
+
+  const togglePlay = () => {
+    if (!audioRef.current || !audioUrl) return;
+    if (playing) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setPlaying(false);
+    } else {
+      audioRef.current.play();
+    }
+  };
+
   return (
-    <div className="flex items-center gap-2 rounded-md border bg-muted/30 p-2">
-      {showControls && (
-        <div className="flex flex-col">
-          <button className="text-muted-foreground hover:text-foreground" onClick={onMoveUp}>
-            <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-            </svg>
-          </button>
-          <button className="text-muted-foreground hover:text-foreground" onClick={onMoveDown}>
-            <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
+    <>
+      <div className="flex items-center gap-2 rounded-md border bg-muted/30 p-2">
+        {showControls && (
+          <div className="flex flex-col">
+            <button className="text-muted-foreground hover:text-foreground" onClick={onMoveUp}>
+              <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+              </svg>
+            </button>
+            <button className="text-muted-foreground hover:text-foreground" onClick={onMoveDown}>
+              <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+          </div>
+        )}
+        <GripVertical className="h-4 w-4 text-muted-foreground" />
+        <div className="flex flex-1 items-center gap-2">
+          <span className="text-xs text-muted-foreground">{item.item_order}.</span>
+          {editing && !item.item_key ? (
+            <Input
+              value={editText}
+              onChange={(e) => setEditText(e.target.value)}
+              onBlur={saveEdit}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") saveEdit();
+                if (e.key === "Escape") {
+                  setEditText(item.item_text);
+                  setEditing(false);
+                }
+              }}
+              className="h-8 flex-1 text-sm"
+              autoFocus
+            />
+          ) : (
+            <span
+              className={`flex-1 text-sm ${item.item_key ? "text-muted-foreground" : "cursor-pointer hover:text-primary"}`}
+              onClick={() => !item.item_key && setEditing(true)}
+            >
+              {item.item_text}
+            </span>
+          )}
         </div>
-      )}
-      <GripVertical className="h-4 w-4 text-muted-foreground" />
-      <div className="flex flex-1 items-center gap-2">
-        <span className="text-xs text-muted-foreground">{item.item_order}.</span>
-        {editing && !item.item_key ? (
-          <Input
-            value={editText}
-            onChange={(e) => setEditText(e.target.value)}
-            onBlur={saveEdit}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") saveEdit();
-              if (e.key === "Escape") {
-                setEditText(item.item_text);
-                setEditing(false);
-              }
-            }}
-            className="h-8 flex-1 text-sm"
-            autoFocus
-          />
-        ) : (
-          <span
-            className={`flex-1 text-sm ${item.item_key ? "text-muted-foreground" : "cursor-pointer hover:text-primary"}`}
-            onClick={() => !item.item_key && setEditing(true)}
-          >
-            {item.item_text}
-          </span>
+        <Button
+          size="icon"
+          variant="ghost"
+          className={`h-7 w-7 ${item.audio_path ? "text-primary" : "text-muted-foreground"}`}
+          onClick={() => setAudioDialogOpen(true)}
+          title={item.audio_path ? "Audio attached" : "Add audio"}
+        >
+          <Volume2 className="h-4 w-4" />
+        </Button>
+        {item.item_key && (
+          <Badge variant="secondary" className="shrink-0 text-xs">Built-in</Badge>
+        )}
+        {!item.item_key && (
+          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onToggleActive}>
+            {item.is_active ? (
+              <Check className="h-4 w-4 text-green-600" />
+            ) : (
+              <X className="h-4 w-4 text-muted-foreground" />
+            )}
+          </Button>
+        )}
+        {!item.item_key && (
+          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onDelete}>
+            <Trash2 className="h-4 w-4 text-destructive" />
+          </Button>
         )}
       </div>
-      {item.item_key && (
-        <Badge variant="secondary" className="shrink-0 text-xs">Built-in</Badge>
-      )}
-      {!item.item_key && (
-        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onToggleActive}>
-          {item.is_active ? (
-            <Check className="h-4 w-4 text-green-600" />
-          ) : (
-            <X className="h-4 w-4 text-muted-foreground" />
-          )}
-        </Button>
-      )}
-      {!item.item_key && (
-        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onDelete}>
-          <Trash2 className="h-4 w-4 text-destructive" />
-        </Button>
-      )}
-    </div>
+
+      <Dialog open={audioDialogOpen} onOpenChange={setAudioDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Audio for: {item.item_text}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {audioUrl && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium">Current Audio</p>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={togglePlay}>
+                    {playing ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                  </Button>
+                  <span className="text-xs text-muted-foreground truncate flex-1">
+                    {item.audio_path?.split("/").pop()}
+                  </span>
+                </div>
+                <audio
+                  ref={audioRef}
+                  src={audioUrl}
+                  onEnded={() => setPlaying(false)}
+                />
+              </div>
+            )}
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium">{audioUrl ? "Replace Audio" : "Upload Audio"}</p>
+              <Input
+                type="file"
+                accept=".mp3,.wav,.ogg,audio/mpeg,audio/wav,audio/ogg"
+                onChange={(e) => setAudioFile(e.target.files?.[0] ?? null)}
+              />
+              {audioFile && <p className="text-xs text-muted-foreground">{audioFile.name}</p>}
+            </div>
+          </div>
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
+            {audioUrl && (
+              <Button variant="destructive" onClick={handleRemoveAudio} disabled={audioUploading}>
+                <Trash2 className="mr-1.5 h-4 w-4" /> Remove
+              </Button>
+            )}
+            <div className="flex gap-2 sm:ml-auto">
+              <Button variant="outline" onClick={() => setAudioDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleAudioUpload} disabled={!audioFile || audioUploading}>
+                {audioUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Upload"}
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

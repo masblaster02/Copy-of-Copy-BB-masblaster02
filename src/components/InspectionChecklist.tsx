@@ -4,6 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Check, X, Camera, Loader as Loader2, Eye } from "lucide-react";
+import { InlineAudioButton } from "@/components/CompanionAudioOverlay";
+import { useCompanionAudioAccess } from "@/hooks/useCompanionAudio";
+import { getDriverSession } from "@/lib/auth/driverAuth";
 
 export interface ChecklistItemDef {
   id: string;
@@ -11,6 +14,7 @@ export interface ChecklistItemDef {
   item_order: number;
   is_active: boolean;
   item_key?: string | null;
+  audio_path?: string | null;
 }
 
 export interface ChecklistResult {
@@ -35,6 +39,8 @@ export function InspectionChecklist({
   loading?: boolean;
 }) {
   const [results, setResults] = useState<ChecklistResult[]>([]);
+  const driver = getDriverSession();
+  const { data: hasAudioAccess } = useCompanionAudioAccess(driver?.driver_id ?? null);
 
   // Initialize results when items change
   useEffect(() => {
@@ -91,29 +97,35 @@ export function InspectionChecklist({
         </div>
       )}
 
-      {results.map((r, i) => (
-        <Card key={r.item_name} className={r.reviewed ? (r.result === "pass" ? "border-green-600/30" : "border-amber-500/30") : ""}>
-          <div className="flex items-center justify-between p-4">
-            <span className="text-sm font-medium">{r.item_name}</span>
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant={r.result === "pass" && r.reviewed ? "default" : "outline"}
-                className={r.result === "pass" && r.reviewed ? "bg-green-600 hover:bg-green-700" : ""}
-                onClick={() => update(i, { result: "pass" })}
-              >
-                <Check className="mr-1 h-4 w-4" /> Pass
-              </Button>
-              <Button
-                size="sm"
-                variant={r.result === "issue" && r.reviewed ? "default" : "outline"}
-                className={r.result === "issue" && r.reviewed ? "bg-destructive hover:bg-destructive/90" : ""}
-                onClick={() => update(i, { result: "issue" })}
-              >
-                <X className="mr-1 h-4 w-4" /> Issue
-              </Button>
+      {results.map((r, i) => {
+        const item = externalItems?.filter((it) => it.is_active)[i];
+        const showAudio = hasAudioAccess && item?.audio_path;
+        return (
+          <Card key={r.item_name} className={r.reviewed ? (r.result === "pass" ? "border-green-600/30" : "border-amber-500/30") : ""}>
+            <div className="flex items-center justify-between p-4">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">{r.item_name}</span>
+                {showAudio && <InlineAudioButton audioPath={item.audio_path!} label="Play instruction" />}
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant={r.result === "pass" && r.reviewed ? "default" : "outline"}
+                  className={r.result === "pass" && r.reviewed ? "bg-green-600 hover:bg-green-700" : ""}
+                  onClick={() => update(i, { result: "pass" })}
+                >
+                  <Check className="mr-1 h-4 w-4" /> Pass
+                </Button>
+                <Button
+                  size="sm"
+                  variant={r.result === "issue" && r.reviewed ? "default" : "outline"}
+                  className={r.result === "issue" && r.reviewed ? "bg-destructive hover:bg-destructive/90" : ""}
+                  onClick={() => update(i, { result: "issue" })}
+                >
+                  <X className="mr-1 h-4 w-4" /> Issue
+                </Button>
+              </div>
             </div>
-          </div>
           {r.result === "issue" && r.reviewed && (
             <div className="border-t p-4 space-y-2">
               <Textarea
@@ -136,7 +148,8 @@ export function InspectionChecklist({
             </div>
           )}
         </Card>
-      ))}
+      );
+      })}
       <Button className="h-12 w-full" onClick={() => onSubmit(results)} disabled={submitting || !allReviewed}>
         {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : submitLabel}
       </Button>

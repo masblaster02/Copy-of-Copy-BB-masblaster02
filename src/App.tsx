@@ -24,6 +24,7 @@ const AdminInspections = lazy(() => import("@/pages/admin/Inspections"));
 const AdminDamages = lazy(() => import("@/pages/admin/Damages"));
 const AdminReports = lazy(() => import("@/pages/admin/Reports"));
 const AdminChecklists = lazy(() => import("@/pages/admin/Checklists"));
+const AdminCompanionAudio = lazy(() => import("@/pages/admin/CompanionAudio"));
 
 function PageLoader() {
   return (
@@ -58,6 +59,7 @@ export default function App() {
             <Route path="/admin/vehicles/:vehicleId" element={<AdminVehicleDetail />} />
             <Route path="/admin/vehicles/:vehicleId/blueprint" element={<AdminVehicleBlueprint />} />
             <Route path="/admin/checklists" element={<AdminChecklists />} />
+            <Route path="/admin/companion-audio" element={<AdminCompanionAudio />} />
             <Route path="/admin/sessions" element={<AdminSessions />} />
             <Route path="/admin/sessions/:sessionId" element={<AdminSessionReport />} />
             <Route path="/admin/inspections" element={<AdminInspections />} />
