@@ -6,8 +6,6 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
 import { clearDriverSession } from "@/lib/auth/driverAuth";
 import { Loader as Loader2, LogOut } from "lucide-react";
-import { CompanionAudioPlayer } from "@/components/CompanionAudioPlayer";
-import { usePageAudio } from "@/hooks/use-page-audio";
 
 export default function DriverStartSelect() {
   const navigate = useNavigate();
@@ -24,7 +22,6 @@ export default function DriverStartSelect() {
       return data;
     },
   });
-  const { data: pageAudio } = usePageAudio("driver_select_vehicle");
 
   function logout() {
     clearDriverSession();
@@ -32,9 +29,7 @@ export default function DriverStartSelect() {
   }
 
   return (
-    <>
-      <CompanionAudioPlayer audioPath={pageAudio?.audio_path} />
-      <DriverShell
+    <DriverShell
       title="Choose vehicle"
       back="/driver"
       steps={{ steps: ["Select", "Inspect", "Pre-trip"], current: 1 }}
@@ -65,6 +60,5 @@ export default function DriverStartSelect() {
         </div>
       )}
     </DriverShell>
-    </>
   );
 }

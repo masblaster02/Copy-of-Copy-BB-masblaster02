@@ -1,15 +1,13 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { supabase } from "@/lib/supabase";
-import { uploadPhotoAt, getPublicUrl } from "@/lib/storage";
 import { toast } from "sonner";
-import { Plus, Trash2, GripVertical, Loader as Loader2, Check, X, Volume2, Upload, Play } from "lucide-react";
+import { Plus, Trash2, GripVertical, Loader as Loader2, Check, X } from "lucide-react";
 
 type ChecklistType = "pre_trip" | "return";
 
@@ -20,7 +18,6 @@ interface ChecklistItem {
   is_active: boolean;
   checklist_type: ChecklistType;
   item_key: string | null;
-  audio_path: string | null;
 }
 
 export default function AdminChecklists() {
@@ -60,7 +57,7 @@ function ChecklistEditor({ type }: { type: ChecklistType }) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("checklist_items")
-        .select("id, item_text, item_order, is_active, checklist_type, item_key, audio_path")
+        .select("*")
         .eq("checklist_type", type)
         .order("item_order");
       if (error) throw error;
@@ -144,22 +141,6 @@ function ChecklistEditor({ type }: { type: ChecklistType }) {
     },
   });
 
-  const updateAudioPath = useMutation({
-    mutationFn: async ({ id, audioPath }: { id: string; audioPath: string | null }) => {
-      const { error } = await supabase
-        .from("checklist_items")
-        .update({ audio_path: audioPath })
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey });
-      qc.invalidateQueries({ queryKey: ["vehicle-checklist"] });
-      toast.success("Audio updated");
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
   function moveItem(fromIndex: number, toIndex: number) {
     if (!items) return;
     const newItems = [...items];
@@ -200,7 +181,6 @@ function ChecklistEditor({ type }: { type: ChecklistType }) {
                 onUpdateText={(text) => updateText.mutate({ id: item.id, item_text: text })}
                 onMoveUp={() => idx > 0 && moveItem(idx, idx - 1)}
                 onMoveDown={() => idx < activeItems.length - 1 && moveItem(idx, idx + 1)}
-                onUpdateAudio={(audioPath) => updateAudioPath.mutate({ id: item.id, audioPath })}
                 showControls
               />
             ))}
@@ -243,7 +223,6 @@ function ChecklistEditor({ type }: { type: ChecklistType }) {
                 onToggleActive={() => toggleActive.mutate({ id: item.id, is_active: true })}
                 onDelete={() => deleteItem.mutate(item.id)}
                 onUpdateText={(text) => updateText.mutate({ id: item.id, item_text: text })}
-                onUpdateAudio={(audioPath) => updateAudioPath.mutate({ id: item.id, audioPath })}
                 showControls={false}
               />
             ))}
@@ -259,7 +238,6 @@ function ChecklistItemRow({
   onToggleActive,
   onDelete,
   onUpdateText,
-  onUpdateAudio,
   onMoveUp,
   onMoveDown,
   showControls,
@@ -268,17 +246,12 @@ function ChecklistItemRow({
   onToggleActive: () => void;
   onDelete: () => void;
   onUpdateText: (text: string) => void;
-  onUpdateAudio: (audioPath: string | null) => void;
   onMoveUp?: () => void;
   onMoveDown?: () => void;
   showControls: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState(item.item_text);
-  const [audioDialogOpen, setAudioDialogOpen] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [playing, setPlaying] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   function saveEdit() {
     if (editText.trim() && editText !== item.item_text) {
@@ -287,181 +260,66 @@ function ChecklistItemRow({
     setEditing(false);
   }
 
-  async function handleAudioUpload(file: File) {
-    setUploading(true);
-    try {
-      const ext = file.name.split(".").pop()?.toLowerCase() || "mp3";
-      const path = `checklists/${item.id}.${ext}`;
-      await uploadPhotoAt("companion-audio", file, path, true);
-      onUpdateAudio(path);
-      setAudioDialogOpen(false);
-    } catch (e) {
-      toast.error((e as Error).message);
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  function handlePlayAudio() {
-    if (!item.audio_path) return;
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
-    }
-    if (playing) {
-      setPlaying(false);
-      return;
-    }
-    const audio = new Audio(getPublicUrl("companion-audio", item.audio_path));
-    audioRef.current = audio;
-    setPlaying(true);
-    audio.play().catch(() => toast.error("Could not play audio"));
-    audio.onended = () => setPlaying(false);
-  }
-
-  async function handleDeleteAudio() {
-    if (!item.audio_path) return;
-    try {
-      await supabase.storage.from("companion-audio").remove([item.audio_path]);
-      onUpdateAudio(null);
-    } catch (e) {
-      toast.error((e as Error).message);
-    }
-  }
-
   return (
-    <>
-      <div className="flex items-center gap-2 rounded-md border bg-muted/30 p-2">
-        {showControls && (
-          <div className="flex flex-col">
-            <button className="text-muted-foreground hover:text-foreground" onClick={onMoveUp}>
-              <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-              </svg>
-            </button>
-            <button className="text-muted-foreground hover:text-foreground" onClick={onMoveDown}>
-              <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-          </div>
-        )}
-        <GripVertical className="h-4 w-4 text-muted-foreground" />
-        <div className="flex flex-1 items-center gap-2">
-          <span className="text-xs text-muted-foreground">{item.item_order}.</span>
-          {editing && !item.item_key ? (
-            <Input
-              value={editText}
-              onChange={(e) => setEditText(e.target.value)}
-              onBlur={saveEdit}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") saveEdit();
-                if (e.key === "Escape") {
-                  setEditText(item.item_text);
-                  setEditing(false);
-                }
-              }}
-              className="h-8 flex-1 text-sm"
-              autoFocus
-            />
-          ) : (
-            <span
-              className={`flex-1 text-sm ${item.item_key ? "text-muted-foreground" : "cursor-pointer hover:text-primary"}`}
-              onClick={() => !item.item_key && setEditing(true)}
-            >
-              {item.item_text}
-            </span>
-          )}
+    <div className="flex items-center gap-2 rounded-md border bg-muted/30 p-2">
+      {showControls && (
+        <div className="flex flex-col">
+          <button className="text-muted-foreground hover:text-foreground" onClick={onMoveUp}>
+            <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+            </svg>
+          </button>
+          <button className="text-muted-foreground hover:text-foreground" onClick={onMoveDown}>
+            <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
         </div>
-        {item.audio_path && (
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-7 w-7"
-            onClick={handlePlayAudio}
-            title="Play audio"
+      )}
+      <GripVertical className="h-4 w-4 text-muted-foreground" />
+      <div className="flex flex-1 items-center gap-2">
+        <span className="text-xs text-muted-foreground">{item.item_order}.</span>
+        {editing && !item.item_key ? (
+          <Input
+            value={editText}
+            onChange={(e) => setEditText(e.target.value)}
+            onBlur={saveEdit}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") saveEdit();
+              if (e.key === "Escape") {
+                setEditText(item.item_text);
+                setEditing(false);
+              }
+            }}
+            className="h-8 flex-1 text-sm"
+            autoFocus
+          />
+        ) : (
+          <span
+            className={`flex-1 text-sm ${item.item_key ? "text-muted-foreground" : "cursor-pointer hover:text-primary"}`}
+            onClick={() => !item.item_key && setEditing(true)}
           >
-            <Play className={`h-4 w-4 ${playing ? "text-primary animate-pulse" : "text-muted-foreground"}`} />
-          </Button>
-        )}
-        <Button
-          size="icon"
-          variant="ghost"
-          className="h-7 w-7"
-          onClick={() => setAudioDialogOpen(true)}
-          title={item.audio_path ? "Manage audio" : "Add audio"}
-        >
-          <Volume2 className={`h-4 w-4 ${item.audio_path ? "text-primary" : "text-muted-foreground/50"}`} />
-        </Button>
-        {item.item_key && (
-          <Badge variant="secondary" className="shrink-0 text-xs">Built-in</Badge>
-        )}
-        {!item.item_key && (
-          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onToggleActive}>
-            {item.is_active ? (
-              <Check className="h-4 w-4 text-green-600" />
-            ) : (
-              <X className="h-4 w-4 text-muted-foreground" />
-            )}
-          </Button>
-        )}
-        {!item.item_key && (
-          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onDelete}>
-            <Trash2 className="h-4 w-4 text-destructive" />
-          </Button>
+            {item.item_text}
+          </span>
         )}
       </div>
-
-      <Dialog open={audioDialogOpen} onOpenChange={setAudioDialogOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Audio for &quot;{item.item_text}&quot;</DialogTitle>
-            <DialogDescription>
-              Upload an audio instruction to play when a driver in Companion Mode reaches this checklist item.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            {item.audio_path && (
-              <div className="flex items-center justify-between rounded-md border p-3">
-                <div className="flex items-center gap-2">
-                  <Volume2 className="h-4 w-4 text-primary" />
-                  <span className="text-sm">Audio uploaded</span>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={handlePlayAudio}>
-                    <Play className="h-4 w-4" />
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={handleDeleteAudio}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                </div>
-              </div>
-            )}
-            <label className="block">
-              <Button asChild disabled={uploading} className="w-full">
-                <span className="cursor-pointer">
-                  {uploading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Upload className="h-4 w-4" />
-                  )}
-                  <span className="ml-2">{item.audio_path ? "Replace Audio" : "Upload Audio"}</span>
-                </span>
-              </Button>
-              <input
-                type="file"
-                accept="audio/*,.mp3,.ogg,.wav,.m4a"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleAudioUpload(file);
-                  e.target.value = "";
-                }}
-              />
-            </label>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
+      {item.item_key && (
+        <Badge variant="secondary" className="shrink-0 text-xs">Built-in</Badge>
+      )}
+      {!item.item_key && (
+        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onToggleActive}>
+          {item.is_active ? (
+            <Check className="h-4 w-4 text-green-600" />
+          ) : (
+            <X className="h-4 w-4 text-muted-foreground" />
+          )}
+        </Button>
+      )}
+      {!item.item_key && (
+        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onDelete}>
+          <Trash2 className="h-4 w-4 text-destructive" />
+        </Button>
+      )}
+    </div>
   );
 }

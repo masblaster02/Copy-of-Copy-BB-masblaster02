@@ -16,8 +16,6 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { CircleCheck as CheckCircle2, TriangleAlert as AlertTriangle, Car, Camera, ClipboardList, User } from "lucide-react";
-import { CompanionAudioPlayer } from "@/components/CompanionAudioPlayer";
-import { usePageAudio } from "@/hooks/use-page-audio";
 
 export default function DriverStartPreTrip() {
   const { vehicleId } = useParams();
@@ -26,7 +24,6 @@ export default function DriverStartPreTrip() {
   const driver = getDriverSession()!;
   const [submitting, setSubmitting] = useState(false);
   const [summary, setSummary] = useState<ChecklistResult[] | null>(null);
-  const { data: pageAudio } = usePageAudio("driver_pretrip");
 
   const reportedDamageCount = (location.state as { reportedDamageCount?: number; newMarkerIds?: string[] } | null)?.reportedDamageCount ?? 0;
   const newMarkerIds = (location.state as { newMarkerIds?: string[] } | null)?.newMarkerIds ?? [];
@@ -57,7 +54,6 @@ export default function DriverStartPreTrip() {
         item_text: d.item_text,
         item_order: d.item_order,
         is_active: true,
-        audio_path: d.audio_path,
       }));
     },
   });
@@ -120,9 +116,7 @@ export default function DriverStartPreTrip() {
   const photoCount = summary ? summary.filter((r) => r.photo).length : 0;
 
   return (
-    <>
-      <CompanionAudioPlayer audioPath={pageAudio?.audio_path} />
-      <DriverShell title="Pre-trip checklist" back={vehicleId ? `/driver/start/${vehicleId}/blueprint` : "/driver/start"} steps={{ steps: ["Select", "Inspect", "Pre-trip"], current: 3 }}>
+    <DriverShell title="Pre-trip checklist" back={vehicleId ? `/driver/start/${vehicleId}/blueprint` : "/driver/start"} steps={{ steps: ["Select", "Inspect", "Pre-trip"], current: 3 }}>
       <InspectionChecklist
         onSubmit={(items) => setSummary(items)}
         submitLabel="Complete pre-trip"
@@ -185,7 +179,6 @@ export default function DriverStartPreTrip() {
         </DialogContent>
       </Dialog>
     </DriverShell>
-    </>
   );
 }
 

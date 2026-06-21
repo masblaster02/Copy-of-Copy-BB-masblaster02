@@ -41,8 +41,6 @@ import {
   TriangleAlert as AlertTriangle,
 } from "lucide-react";
 import { type ChecklistItemDef } from "@/components/InspectionChecklist";
-import { CompanionAudioPlayer } from "@/components/CompanionAudioPlayer";
-import { usePageAudio } from "@/hooks/use-page-audio";
 
 const DAMAGE_TYPES = ["scratch", "dent", "crack", "paint", "missing_part", "other"];
 const BASE_BUCKET = "vehicle-base-photos";
@@ -84,7 +82,6 @@ interface ItemState {
 export default function DriverReturnInspection() {
   const driver = getDriverSession()!;
   const navigate = useNavigate();
-  const { data: pageAudio } = usePageAudio("driver_return");
 
   const [markers, setMarkers] = useState<NewMarker[]>([]);
   const [view, setView] = useState<BlueprintView>("front");
@@ -127,7 +124,6 @@ export default function DriverReturnInspection() {
         item_order: d.item_order,
         is_active: true,
         item_key: d.item_key ?? null,
-        audio_path: d.audio_path,
       }));
     },
   });
@@ -309,40 +305,32 @@ export default function DriverReturnInspection() {
 
   if (sessionLoading || checklistLoading) {
     return (
-      <>
-        <CompanionAudioPlayer audioPath={pageAudio?.audio_path} />
-        <DriverShell title="Return vehicle" back="/driver">
-          <div className="flex justify-center py-10">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-          </div>
-        </DriverShell>
-      </>
+      <DriverShell title="Return vehicle" back="/driver">
+        <div className="flex justify-center py-10">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </div>
+      </DriverShell>
     );
   }
 
   if (!session) {
     return (
-      <>
-        <CompanionAudioPlayer audioPath={pageAudio?.audio_path} />
-        <DriverShell title="Return vehicle" back="/driver">
-          <p className="text-sm text-muted-foreground">No active session found.</p>
-        </DriverShell>
-      </>
+      <DriverShell title="Return vehicle" back="/driver">
+        <p className="text-sm text-muted-foreground">No active session found.</p>
+      </DriverShell>
     );
   }
 
   return (
-    <>
-      <CompanionAudioPlayer audioPath={pageAudio?.audio_path} />
-      <DriverShell
-        title="Return vehicle"
-        back="/driver"
-        action={
-          <Button variant="ghost" size="icon" onClick={() => { clearDriverSession(); navigate("/", { replace: true }); }} aria-label="Sign out">
-            <LogOut className="h-5 w-5" />
-          </Button>
-        }
-      >
+    <DriverShell
+      title="Return vehicle"
+      back="/driver"
+      action={
+        <Button variant="ghost" size="icon" onClick={() => { clearDriverSession(); navigate("/", { replace: true }); }} aria-label="Sign out">
+          <LogOut className="h-5 w-5" />
+        </Button>
+      }
+    >
       <div className="space-y-4">
         {/* @ts-expect-error supabase relation */}
         <p className="text-sm text-muted-foreground">Vehicle: {session.vehicle?.registration_number}</p>
@@ -643,7 +631,6 @@ export default function DriverReturnInspection() {
         </SheetContent>
       </Sheet>
     </DriverShell>
-    </>
   );
 }
 
